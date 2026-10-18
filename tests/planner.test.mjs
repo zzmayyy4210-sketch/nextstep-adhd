@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {basicPlan,smallerSteps,validateSteps} from '../public/planner.js';
+import {handlePlan,allowRequest} from '../api/plan.mjs';
+test('常见任务和未知任务均返回可执行步骤',()=>{for(const task of ['整理房间','开始写作业','准备找工作','写论文','跑步','筹办一个生日聚会']){const steps=basicPlan(task);assert.ok(steps.length>=4);assert.ok(steps.every(s=>s.title&&s.detail&&s.minutes<=2));}});
+test('拒绝空任务和无效模型结果',()=>{assert.throws(()=>basicPlan(' '));assert.throws(()=>validateSteps([{title:'',detail:'x'}]));assert.throws(()=>validateSteps(null));assert.throws(()=>validateSteps(Array(17).fill({title:'a',detail:'b'})));});
+test('拆小后保留当前步骤目标',()=>{const step=basicPlan('写作业')[0];const parts=smallerSteps(step);assert.equal(parts.at(-1).title,step.title);assert.ok(parts.every(s=>s.minutes<=2));});
+test('未配置密钥时不访问模型',async()=>{const r=await handlePlan({method:'POST',body:{task:'写作业'}},{},()=>{throw Error('不应调用');});assert.equal(r.status,503);assert.deepEqual((await handlePlan({method:'GET'},{})).body.available,false);});
+test('邀请码与输入验证发生在模型调用前',async()=>{const env={OPENROUTER_API_KEY:'test',APP_ACCESS_CODE:'invite'};assert.equal((await handlePlan({method:'POST',body:{task:'x'}},env)).status,401);assert.equal((await handlePlan({method:'POST',code:'invite',body:'{'},env)).status,400);assert.equal((await handlePlan({method:'POST',code:'invite',body:{task:'x',step:{}}},env)).status,400);});
+test('模型调用锁定免费路由，正确解析步骤',async()=>{let payload;const r=await handlePlan({method:'POST',ip:'success-test',body:{task:'整理房间'}},{OPENROUTER_API_KEY:'test'},async(url,options)=>{payload=JSON.parse(options.body);return{ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({steps:[{title:'拿一个袋子',detail:'放在手边',minutes:1}]})}}]})};});assert.equal(r.status,200);assert.equal(payload.model,'openrouter/free');assert.equal(r.body.steps[0].title,'拿一个袋子');});
+test('免费模型故障或格式错误不会泄露上游响应',async()=>{for(const fake of [async()=>({ok:false}),async()=>({ok:true,json:async()=>({choices:[{message:{content:'invalid'}}]})}),async()=>{throw Error('secret upstream error');}]){const r=await handlePlan({method:'POST',ip:'failure-test',body:{task:'a'}},{OPENROUTER_API_KEY:'test'},fake);assert.equal(r.status,503);assert.ok(!JSON.stringify(r).includes('secret'));}});
+test('同一实例每日限额并在24小时后恢复',()=>{const now=Date.now();for(let i=0;i<20;i++)assert.equal(allowRequest('limit-test',now),true);assert.equal(allowRequest('limit-test',now),false);assert.equal(allowRequest('limit-test',now+86400001),true);});

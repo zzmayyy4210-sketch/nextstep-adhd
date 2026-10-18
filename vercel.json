@@ -1,0 +1,1 @@
+{"rewrites":[{"source":"/api/plan","destination":"/api/plan.mjs"},{"source":"/((?!api/).*)","destination":"/public/$1"}]}
