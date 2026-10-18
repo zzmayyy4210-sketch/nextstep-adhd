@@ -1,1 +1,1 @@
-{"rewrites":[{"source":"/api/plan","destination":"/api/plan.mjs"},{"source":"/((?!api/).*)","destination":"/public/$1"}]}
+{"version":2,"builds":[{"src":"api/plan.mjs","use":"@vercel/node"},{"src":"public/**","use":"@vercel/static"}],"routes":[{"src":"/api/plan","dest":"/api/plan.mjs"},{"src":"/","dest":"/public/index.html"},{"src":"/(.*)","dest":"/public/$1"}]}

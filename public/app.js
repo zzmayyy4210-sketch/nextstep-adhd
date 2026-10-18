@@ -4,7 +4,7 @@ const KEY='nextstep-v1';
 let tasks=[], currentId=null, aiAvailable=false, code='', busy=false, undoState=null;
 let seconds=120, deadline=null, clock=null;
 function announce(msg){$('status').textContent=msg;}
-try { const data=JSON.parse(localStorage.getItem(KEY)||'{}'); tasks=Array.isArray(data.tasks)?data.tasks.slice(0,30).filter(t=>{try{validateSteps(t.steps);return typeof t.id==='string'&&typeof t.title==='string'&&Number.isInteger(t.index)&&t.index>=0&&t.index<=t.steps.length;}catch{return false;}}):[]; currentId=data.currentId; } catch {announce('没有读到旧记录，可以从一件新任务开始。');}
+try { const data=JSON.parse(localStorage.getItem(KEY)||'{}'); tasks=Array.isArray(data.tasks)?data.tasks.slice(0,30).filter(t=>{try{if(!Array.isArray(t.steps)||t.steps.length>64)throw Error();t.steps=t.steps.flatMap(s=>validateSteps([s]));return typeof t.id==='string'&&typeof t.title==='string'&&Number.isInteger(t.index)&&t.index>=0&&t.index<=t.steps.length;}catch{return false;}}):[]; currentId=data.currentId; } catch {announce('没有读到旧记录，可以从一件新任务开始。');}
 try{code=sessionStorage.getItem('nextstep-code')||'';}catch{}
 const current=()=>tasks.find(t=>t.id===currentId);
 function save(){try{localStorage.setItem(KEY,JSON.stringify({tasks,currentId}));}catch{announce('浏览器暂时无法保存记录，请导出任务留存。');}}
